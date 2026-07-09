@@ -1,5 +1,8 @@
 import { errorResponse, isNonEmptyString } from "../../lib/api-utils";
 
+// Allow long upstream calls on Vercel (Hobby default timeout is too short)
+export const maxDuration = 30;
+
 const UNSPLASH_SEARCH_URL = "https://api.unsplash.com/search/photos";
 
 interface UnsplashApiPhoto {

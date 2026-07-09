@@ -5,6 +5,9 @@ import {
   toneForTheme,
 } from "../../lib/gemini";
 
+// Allow long upstream calls on Vercel (Hobby default timeout is too short)
+export const maxDuration = 60;
+
 const MIN_SLIDES = 5;
 const MAX_SLIDES = 7;
 // Instagram works best with at most 5 hashtags — hard cap whatever comes back.

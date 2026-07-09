@@ -5,6 +5,9 @@ import {
   toneForTheme,
 } from "../../lib/gemini";
 
+// Allow long upstream calls on Vercel (Hobby default timeout is too short)
+export const maxDuration = 60;
+
 interface SlideContent {
   title: string;
   body: string;

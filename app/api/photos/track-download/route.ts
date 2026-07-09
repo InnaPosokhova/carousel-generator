@@ -1,5 +1,8 @@
 import { errorResponse, isNonEmptyString } from "../../../lib/api-utils";
 
+// Allow long upstream calls on Vercel (Hobby default timeout is too short)
+export const maxDuration = 30;
+
 // Unsplash API guidelines require hitting the photo's download_location
 // endpoint when a photo is actually used.
 export async function POST(request: Request): Promise<Response> {

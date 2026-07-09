@@ -1,5 +1,8 @@
 import { errorResponse, isNonEmptyString } from "../../lib/api-utils";
 
+// Allow long upstream calls on Vercel (Hobby default timeout is too short)
+export const maxDuration = 60;
+
 // Same-origin proxy for remote background images so html-to-image can embed
 // them at export time without canvas tainting or upstream CORS surprises.
 const ALLOWED_HOSTS = new Set([

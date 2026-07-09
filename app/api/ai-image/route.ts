@@ -1,5 +1,8 @@
 import { errorResponse, isNonEmptyString } from "../../lib/api-utils";
 
+// Allow long upstream calls on Vercel (Hobby default timeout is too short)
+export const maxDuration = 60;
+
 // Same-origin proxy for Pollinations: their CDN 403s browser fetch() calls
 // (Origin header), which would break both generation and html-to-image export.
 export async function GET(request: Request): Promise<Response> {
