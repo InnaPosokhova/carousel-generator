@@ -11,7 +11,7 @@ Making a decent-looking carousel usually means bouncing between ChatGPT for copy
 <!-- TODO: Add a demo GIF or screenshot here. Record the flow: type topic → Generate → switch theme → customize → export.
      Drop the file in e.g. `docs/demo.gif` and embed it: ![Demo](docs/demo.gif) -->
 
-**Live demo:** _coming soon_ <!-- TODO: add your deployment URL here (e.g. Vercel) once deployed -->
+**Live demo:** [carousel.innaposokhova.ca](https://carousel.innaposokhova.ca)
 
 ## Features
 
