@@ -317,6 +317,7 @@ export default function Home() {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const toggleSection = (key: string) =>
     setOpenSections((s) => ({ ...s, [key]: !s[key] }));
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
   const [slideImages, setSlideImages] = useState<Record<number, string>>({});
   const [usedPhotos, setUsedPhotos] = useState<Record<string, UnsplashPhoto>>({});
   const exportRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -589,7 +590,7 @@ export default function Home() {
 
   return (
     <div className="flex-1 bg-zinc-50 font-sans text-zinc-900">
-      <main className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-10 px-6 py-10 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-16 lg:px-10 lg:py-16">
+      <main className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-10 px-6 py-10 lg:justify-center lg:grid-cols-[minmax(0,26rem)_minmax(0,24rem)] lg:gap-16 lg:px-10 lg:py-16">
         {/* Left panel — controls */}
         <section className="flex flex-col gap-8 lg:sticky lg:top-16 lg:self-start">
           <div>
@@ -1222,8 +1223,15 @@ export default function Home() {
               <div className="overflow-hidden rounded-[2rem] bg-white">
                 {/* Post header */}
                 <div className="flex items-center gap-3 px-4 py-3">
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-amber-400 via-rose-500 to-fuchsia-600 p-[2px]">
-                    <div className="h-full w-full rounded-full border-2 border-white bg-zinc-200" />
+                  <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-tr from-amber-400 via-rose-500 to-fuchsia-600 p-[2px]">
+                    <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border-2 border-white bg-white">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src="/ip-logo.svg"
+                        alt="Profile avatar"
+                        className="h-3 w-auto"
+                      />
+                    </div>
                   </div>
                   <span className="text-sm font-semibold">yourhandle</span>
                   <span className="ml-auto text-lg leading-none tracking-widest text-zinc-400">
@@ -1231,7 +1239,28 @@ export default function Home() {
                   </span>
                 </div>
 
-                <div className="relative">
+                <div
+                  className="relative"
+                  onTouchStart={(e) => {
+                    const t = e.touches[0];
+                    touchStart.current = { x: t.clientX, y: t.clientY };
+                  }}
+                  onTouchEnd={(e) => {
+                    const start = touchStart.current;
+                    touchStart.current = null;
+                    if (!generated || !start) return;
+                    const t = e.changedTouches[0];
+                    const dx = t.clientX - start.x;
+                    const dy = t.clientY - start.y;
+                    // Real horizontal swipes only — not taps (to edit) or scrolls
+                    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) {
+                      return;
+                    }
+                    setCurrentSlide((i) =>
+                      dx < 0 ? Math.min(slideCount - 1, i + 1) : Math.max(0, i - 1),
+                    );
+                  }}
+                >
                   {generated && slide ? (
                     <div key={currentSlide} className="animate-slide-in">
                       <Slide
@@ -1666,7 +1695,7 @@ export default function Home() {
         >
           Inna Posokhova
         </a>{" "}
-        · Next.js + Gemini
+        · Next.js + Claude Code
       </footer>
 
       {/* Off-screen full-res export renders (no dimension watermark, not editable) */}
