@@ -12,7 +12,6 @@ import {
 import {
   aspectRatios,
   defaultAspectRatioId,
-  type AspectRatio,
   type AspectRatioId,
 } from "./lib/aspect-ratios";
 import {
@@ -70,23 +69,21 @@ function suggestPhotoQuery(topic: string): string {
 }
 
 const AI_VIBE_BY_THEME: Record<ThemeId, string> = {
-  minimal:
-    "clean minimalist abstract background, soft neutral tones, lots of negative space",
-  bold: "high-contrast dramatic abstract background, deep rich colors, bold geometry",
-  aesthetic: "soft pastel dreamy gradient texture, delicate light, airy and calm",
+  minimal: "soft neutral tones, clean and calm, gentle daylight",
+  bold: "deep rich saturated colors, dramatic contrast lighting",
+  aesthetic: "soft pastel palette, dreamy delicate light, airy",
 };
 
+// FLUX ignores negatives like "no text", and an empty scene or the words
+// "slide"/"text" make it paint the topic as a big title. A blurred, object-led
+// photo avoids that and stays quiet behind the slide copy.
 function suggestAiPrompt(topic: string, themeId: ThemeId): string {
-  return `${suggestPhotoQuery(topic)}, ${AI_VIBE_BY_THEME[themeId]}, background for a social media slide, no text, no words`;
+  return `Soft-focus close-up photograph of objects related to ${suggestPhotoQuery(topic)}, shallow depth of field, heavily blurred bokeh background, ${AI_VIBE_BY_THEME[themeId]}, abstract and atmospheric, unbranded, no lettering`;
 }
 
-// Goes through our /api/ai-image proxy — Pollinations 403s direct browser fetches.
-function aiImageUrl(
-  prompt: string,
-  seed: number,
-  aspectRatio: AspectRatio,
-): string {
-  return `/api/ai-image?prompt=${encodeURIComponent(prompt)}&seed=${seed}&width=${aspectRatio.width}&height=${aspectRatio.height}`;
+// Goes through our /api/ai-image proxy, which keeps the Cloudflare token server-side.
+function aiImageUrl(prompt: string): string {
+  return `/api/ai-image?prompt=${encodeURIComponent(prompt)}`;
 }
 
 const BACKGROUND_PRESETS = ["#ffffff", "#faf9f6", "#111111", "#0f172a", "#fbd3e0", "#d9f2e5"];
@@ -310,7 +307,6 @@ export default function Home() {
   const [selectedPhoto, setSelectedPhoto] = useState<UnsplashPhoto | null>(null);
   const [creditInCaption, setCreditInCaption] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
-  const [aiSeed, setAiSeed] = useState(42);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [imagePerSlide, setImagePerSlide] = useState(false);
@@ -513,20 +509,28 @@ export default function Home() {
     }).catch(() => {});
   }
 
-  async function generateAiImage(seed: number) {
+  async function generateAiImage() {
     const prompt = aiPrompt.trim();
     if (!prompt || aiLoading) return;
     const targetSlide = currentSlide;
     setAiLoading(true);
     setAiError(null);
     try {
-      // Download once and keep the bytes as a blob URL: Pollinations
-      // regenerates on every request, so re-fetching at export time would be
-      // slow and could produce a different image than the preview.
-      const res = await fetch(aiImageUrl(prompt, seed, aspectRatio), {
-        signal: AbortSignal.timeout(120_000),
+      // Download once and keep the bytes as a blob URL, so export reuses the
+      // exact image in the preview instead of calling the AI service again
+      // (slow, and it spends the free daily allowance).
+      const res = await fetch(aiImageUrl(prompt), {
+        cache: "no-store",
+        signal: AbortSignal.timeout(70_000),
       });
-      if (!res.ok) throw new Error(`AI image proxy returned ${res.status}`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setAiError(
+          (data as { error?: string } | null)?.error ??
+            `Could not generate the image (error ${res.status}). Try again.`,
+        );
+        return;
+      }
       const url = URL.createObjectURL(await res.blob());
       if (imagePerSlide && generated) {
         setSlideImages((m) => ({ ...m, [targetSlide]: url }));
@@ -541,10 +545,11 @@ export default function Home() {
         setUsedPhotos({});
       }
     } catch {
+      // Keep whatever image is already showing — a failed regenerate
+      // shouldn't throw away the background the user had.
       setAiError(
-        "Could not generate the image (it may have timed out) — reverted to a gradient background.",
+        "Could not generate the image (it may have timed out). Please try again.",
       );
-      setOverrides((o) => ({ ...o, backgroundType: "gradient" }));
     } finally {
       setAiLoading(false);
     }
@@ -883,25 +888,10 @@ export default function Home() {
                           placeholder="Describe the background image…"
                           className="w-full resize-none rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs leading-5 placeholder:text-zinc-400 focus:border-[#0095F6] focus:outline-none"
                         />
-                        <Row label="Seed">
-                          <input
-                            type="number"
-                            min={0}
-                            max={999999}
-                            value={aiSeed}
-                            onChange={(e) =>
-                              setAiSeed(
-                                Math.max(0, parseInt(e.target.value, 10) || 0),
-                              )
-                            }
-                            aria-label="AI image seed"
-                            className="w-24 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-xs focus:border-[#0095F6] focus:outline-none"
-                          />
-                        </Row>
                         <div className="flex gap-1.5">
                           <button
                             type="button"
-                            onClick={() => generateAiImage(aiSeed)}
+                            onClick={() => generateAiImage()}
                             disabled={aiLoading || !aiPrompt.trim()}
                             className="flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white transition-opacity disabled:opacity-50"
                           >
@@ -913,23 +903,10 @@ export default function Home() {
                             )}
                             {aiLoading ? "Generating…" : "Generate image"}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const seed = Math.floor(Math.random() * 1_000_000);
-                              setAiSeed(seed);
-                              generateAiImage(seed);
-                            }}
-                            disabled={aiLoading || !aiPrompt.trim()}
-                            title="New random seed, then generate"
-                            className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:text-zinc-900 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            Regenerate image
-                          </button>
                         </div>
                         <p className="text-[11px] leading-4 text-zinc-400">
-                          Generated by Pollinations.ai — free, no key needed.
-                          Generation can take ~10-30 seconds.
+                          Each click makes a new image with FLUX on Cloudflare
+                          Workers AI (free daily allowance). Takes a few seconds.
                         </p>
                       </div>
                     )}

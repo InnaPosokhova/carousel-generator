@@ -22,7 +22,7 @@ Making a decent-looking carousel usually means bouncing between ChatGPT for copy
   - title accents (bar, underline, keyword highlight), text size, alignment, vertical position, padding, slide-number styling
   - cover slide is automatically distinct (larger title, accent shape)
 - **Aspect ratios** — Portrait 4:5 (1080×1350), Square 1:1 (1080×1080), and Story 9:16 (1080×1920); adding formats is a one-line config change.
-- **Image backgrounds** — Unsplash stock search (auto-suggested query from the topic) and Pollinations AI generation (prompt auto-built from topic + theme vibe, editable, with seed control), applied to all slides or per slide, with an adjustable legibility scrim (strength + dark/light tone) so text always stays readable.
+- **Image backgrounds** — Unsplash stock search (auto-suggested query from the topic) and AI generation with FLUX on Cloudflare Workers AI (prompt auto-built from topic + theme vibe, editable, a new image on every click), applied to all slides or per slide, with an adjustable legibility scrim (strength + dark/light tone) so text always stays readable.
 - **Edit everything inline** — click any slide title, body, or the caption to edit; regenerate any single slide with full deck context so it doesn't repeat the others.
 - **Export** — download any slide as a full-resolution PNG or all slides as a zip; text auto-scales so no layout breaks, and web fonts/images are fully loaded before rendering so exports match the preview exactly.
 
@@ -34,15 +34,15 @@ Making a decent-looking carousel usually means bouncing between ChatGPT for copy
 | **Tailwind CSS** | Fast iteration on a design-heavy UI; theme values that must be dynamic (user-picked colors, fonts, scales) are applied via a single resolved-theme object instead of generated classes. |
 | **Google Gemini (`gemini-2.5-flash`)** | Free-tier friendly text generation with JSON output mode; responses are parsed and schema-validated server-side before reaching the client. |
 | **Unsplash API** | High-quality stock backgrounds with a proper compliance story (attribution + download tracking). |
-| **Pollinations.ai** | Keyless AI image generation for custom backgrounds. |
+| **Cloudflare Workers AI** | FLUX.1 schnell image generation for custom backgrounds (free daily allowance). |
 | **`next/font`** | Self-hosts the curated Google Fonts, so exports never race a font CDN. |
 | **`html-to-image` + `jszip`** | Client-side rendering of the actual slide DOM to PNG at 3× (true 1080-width output) and zip packaging — no server rendering needed. |
 
 ### Security & reliability notes
 
-- **API keys never reach the browser.** Gemini and Unsplash calls happen exclusively inside serverless API routes (`/api/generate`, `/api/regenerate-slide`, `/api/photos`); keys live in `.env.local` (gitignored) and are read from `process.env` server-side only.
-- **Exports can't be broken by remote images.** Pollinations images are fetched through a same-origin proxy (`/api/ai-image`) and kept as blob URLs, because their CDN rejects browser `fetch()` calls; Unsplash images are hotlinked (their guideline) which works because their CDN sends CORS headers — and a same-origin `/api/image-proxy` with a host allowlist exists as a fallback. Slides load images with `crossOrigin="anonymous"`, and the export pipeline substitutes a neutral placeholder if an image can't be fetched, so a bad image never kills an export.
-- Friendly, specific error states throughout: empty topic, invalid/missing keys, Gemini free-tier rate limits, Unsplash demo-tier limit (50/hr), AI-image failures (auto-revert to gradient).
+- **API keys never reach the browser.** Gemini, Unsplash and Cloudflare calls happen exclusively inside serverless API routes (`/api/generate`, `/api/regenerate-slide`, `/api/photos`, `/api/ai-image`); keys live in `.env.local` (gitignored) and are read from `process.env` server-side only.
+- **Exports can't be broken by remote images.** AI images are generated through a same-origin route (`/api/ai-image`, which keeps the Cloudflare token server-side) and kept as blob URLs; Unsplash images are hotlinked (their guideline) which works because their CDN sends CORS headers — and a same-origin `/api/image-proxy` with a host allowlist exists as a fallback. At export time every slide image is fetched (remote ones through `/api/image-proxy`) and embedded as a data URL before rasterizing, and the pipeline substitutes a neutral placeholder if an image can't be fetched, so a bad image never kills an export.
+- Friendly, specific error states throughout: empty topic, invalid/missing keys, Gemini free-tier rate limits, Unsplash demo-tier limit (50/hr), AI-image failures (clear reason shown, current image kept).
 
 ## Local setup
 
@@ -54,21 +54,22 @@ npm install
 
 1. **Gemini key (free):** create one at [Google AI Studio](https://aistudio.google.com) → API keys. The free tier is plenty for development.
 2. **Unsplash key (free):** create an app at [unsplash.com/oauth/applications](https://unsplash.com/oauth/applications) and copy the **Access Key** (demo tier: 50 requests/hour).
-3. Add both to `.env.local` in the project root:
+3. **Cloudflare Workers AI (free):** create a free account at [dash.cloudflare.com](https://dash.cloudflare.com). Copy your **Account ID** (shown in the dashboard sidebar / Workers & Pages overview), then go to **My Profile → API Tokens → Create Token**, pick the **Workers AI** template, and copy the token. The free plan includes a daily Workers AI allowance (10,000 neurons/day), enough for a few hundred images.
+4. Add them all to `.env.local` in the project root (and to your Vercel project's environment variables):
 
 ```bash
 GEMINI_API_KEY=your_gemini_key
 UNSPLASH_ACCESS_KEY=your_unsplash_access_key
+CLOUDFLARE_ACCOUNT_ID=your_account_id
+CLOUDFLARE_API_TOKEN=your_workers_ai_token
 ```
 
-4. Run it:
+5. Run it:
 
 ```bash
 npm run dev
 # open http://localhost:3000
 ```
-
-**Pollinations needs no key** — AI image backgrounds work out of the box.
 
 Quick API smoke test (server must be running): `sh scripts/test-generate.sh "your topic" minimal`
 

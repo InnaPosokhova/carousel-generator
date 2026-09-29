@@ -8,7 +8,6 @@ export const maxDuration = 60;
 const ALLOWED_HOSTS = new Set([
   "images.unsplash.com",
   "plus.unsplash.com",
-  "image.pollinations.ai",
 ]);
 
 export async function GET(request: Request): Promise<Response> {

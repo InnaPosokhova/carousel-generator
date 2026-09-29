@@ -210,8 +210,8 @@ export default function Slide({
           }}
         />
       )}
-      {/* Cover slides get a soft accent shape */}
-      {isCover && (
+      {/* Cover slides get a soft accent shape (not over photos/AI images) */}
+      {isCover && !theme.backgroundImageUrl && (
         <span
           aria-hidden
           className="pointer-events-none absolute -bottom-12 -right-12 h-44 w-44 rounded-full"
